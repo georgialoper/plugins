@@ -119,8 +119,65 @@ const deletePetsPetidNode = ast.factory.createOperation({
   responses: [ast.factory.createResponse({ statusCode: '200', description: 'deleted', schema: ast.factory.createSchema({ type: 'void' }) })],
 })
 
+const responseNameCollisionNode = ast.factory.createOperation({
+  operationId: 'getThing',
+  method: 'GET',
+  path: '/thing',
+  tags: ['things'],
+  responses: [
+    ast.factory.createResponse({
+      statusCode: '200',
+      description: 'OK',
+      schema: ast.factory.createSchema({ type: 'ref', name: 'GetThingResponse', ref: '#/components/schemas/GetThingResponse' }),
+    }),
+  ],
+})
+
+const enumResponseNameCollisionNode = ast.factory.createOperation({
+  operationId: 'getThing',
+  method: 'GET',
+  path: '/thing',
+  tags: ['things'],
+  responses: [
+    ast.factory.createResponse({
+      statusCode: '200',
+      description: 'OK',
+      schema: ast.factory.createSchema({ type: 'ref', name: 'GetThing', ref: '#/components/schemas/GetThing' }),
+    }),
+  ],
+})
+
+const bodylessSuccessCollisionNode = ast.factory.createOperation({
+  operationId: 'getThing',
+  method: 'GET',
+  path: '/thing',
+  tags: ['things'],
+  responses: [
+    ast.factory.createResponse({ statusCode: '204', description: 'No content' }),
+    ast.factory.createResponse({
+      statusCode: '200',
+      description: 'OK',
+      schema: ast.factory.createSchema({ type: 'ref', name: 'GetThingResponse', ref: '#/components/schemas/GetThingResponse' }),
+    }),
+  ],
+})
+
+const bodylessOnlyNode = ast.factory.createOperation({
+  operationId: 'deleteThing',
+  method: 'DELETE',
+  path: '/thing',
+  tags: ['things'],
+  responses: [ast.factory.createResponse({ statusCode: '204', description: 'No content' })],
+})
+
 describe('mswGenerator operation', () => {
-  const testData = [
+  const testData: Array<{
+    name: string
+    node: ast.OperationNode
+    options: Partial<PluginMsw['resolvedOptions']>
+    tsEnum?: PluginTs['resolvedOptions']['enum']
+    enumNames?: Array<string>
+  }> = [
     { name: 'showPetById', node: showPetByIdNode, options: {} },
     { name: 'getPets', node: listPetsNode, options: {} },
     { name: 'getPetsTemplateBaseUrl', node: listPetsNode, options: { baseURL: '${123456}' } },
@@ -128,7 +185,26 @@ describe('mswGenerator operation', () => {
     { name: 'createPet', node: createPetsNode, options: {} },
     { name: 'deletePet', node: deletePetsPetidNode, options: {} },
     { name: 'createPetFaker', node: createPetsNode, options: { parser: 'faker' as const } },
-  ] as const satisfies Array<{ name: string; node: ast.OperationNode; options: Partial<PluginMsw['resolvedOptions']> }>
+    { name: 'responseNameCollision', node: responseNameCollisionNode, options: {} },
+    { name: 'responseNameCollisionFaker', node: responseNameCollisionNode, options: { parser: 'faker' as const } },
+    {
+      name: 'enumResponseNameCollision',
+      node: enumResponseNameCollisionNode,
+      options: {},
+      tsEnum: { type: 'asConst', constCasing: 'camelCase', typeSuffix: 'Response', keyCasing: 'none' },
+      enumNames: ['GetThing'],
+    },
+    {
+      name: 'enumResponseNameNoCollision',
+      node: responseNameCollisionNode,
+      options: {},
+      tsEnum: { type: 'asConst', constCasing: 'camelCase', typeSuffix: 'Key', keyCasing: 'none' },
+      enumNames: ['GetThingResponse'],
+    },
+    { name: 'bodylessSuccessCollision', node: bodylessSuccessCollisionNode, options: {} },
+    { name: 'bodylessSuccessCollisionFaker', node: bodylessSuccessCollisionNode, options: { parser: 'faker' as const } },
+    { name: 'bodylessOnly', node: bodylessOnlyNode, options: {} },
+  ]
 
   test.each(testData)('$name', async (props) => {
     const options: PluginMsw['resolvedOptions'] = {
@@ -137,15 +213,22 @@ describe('mswGenerator operation', () => {
     }
     const plugin = createMockedPlugin<PluginMsw>({ name: 'plugin-msw', options, resolver: resolverMsw })
     const driver = createMockedPluginDriver({ name: props.name })
+    const tsPlugin = props.tsEnum
+      ? createMockedPlugin<PluginTs>({
+          name: 'plugin-ts',
+          options: { output: { path: '.', mode: 'directory' }, group: null, enum: props.tsEnum } as PluginTs['resolvedOptions'],
+          resolver: resolverTs,
+        })
+      : mockedTsPlugin
 
     driver.getPlugin = ((pluginName: string) => {
-      if (pluginName === 'plugin-ts') return mockedTsPlugin
+      if (pluginName === 'plugin-ts') return tsPlugin
       if (pluginName === pluginFakerName) return mockedFakerPlugin
       return undefined
     }) as typeof driver.getPlugin
 
     driver.getResolver = ((pluginName: string) => {
-      if (pluginName === 'plugin-ts') return mockedTsPlugin.resolver
+      if (pluginName === 'plugin-ts') return tsPlugin.resolver
       if (pluginName === pluginFakerName) return mockedFakerPlugin.resolver
       return undefined
     }) as typeof driver.getResolver
@@ -157,6 +240,7 @@ describe('mswGenerator operation', () => {
       plugin,
       options,
       resolver: resolverMsw,
+      meta: { enumNames: props.enumNames ?? [], circularNames: [] },
     })
 
     await matchFiles(driver.fileManager.files, props.name)
