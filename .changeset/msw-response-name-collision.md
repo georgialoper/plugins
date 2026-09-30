@@ -2,4 +2,4 @@
 '@kubb/plugin-msw': patch
 ---
 
-Use exported per-status types and Faker helpers when a response name matches a schema. Avoid importing missing types for responses without a body.
+Use exported per-status response types in MSW handlers when an operation response alias collides with an imported schema type name.

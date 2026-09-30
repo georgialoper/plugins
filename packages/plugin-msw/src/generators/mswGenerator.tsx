@@ -28,12 +28,11 @@ export const mswGenerator = defineGenerator<PluginMsw>({
     }
 
     const fakerPlugin = parser === 'faker' ? driver.getPlugin(pluginFakerName) : null
-    const fakerResolver = fakerPlugin ? driver.getResolver(pluginFakerName) : null
     const faker =
-      fakerPlugin && fakerResolver
+      parser === 'faker' && fakerPlugin
         ? resolveFakerMeta(node, {
             root,
-            fakerResolver,
+            fakerResolver: driver.getResolver(pluginFakerName),
             fakerOutput: fakerPlugin.options?.output ?? output,
             fakerGroup: fakerPlugin.options?.group ?? null,
           })
@@ -68,19 +67,14 @@ export const mswGenerator = defineGenerator<PluginMsw>({
           : tsResolver.name(name)
       return importName === type.responseName
     })
-    const hasFakerNameCollision = faker && fakerResolver && referencedNames.some((name) => fakerResolver.name(name) === faker.name)
     const types = resolveResponseTypes(node, tsResolver).map(([code, typeName]) => {
-      const response = node.responses.find((item) => item.statusCode === String(code))
-      if (response && !response.content?.some((entry) => entry.schema)) return [code, 'void'] as const
-
       const successResponse = successResponses.find((response) => response.statusCode === String(code))
       return [code, hasResponseNameCollision && successResponse ? tsResolver.response.status(node, successResponse.statusCode) : typeName] as const
     })
+    const responseTypeNames = types.map(([, typeName]) => typeName).filter((name) => !hasResponseNameCollision || name !== type.responseName)
     const mockResponseName =
       hasResponseNameCollision && successResponses[0] ? tsResolver.response.status(node, successResponses[0].statusCode) : type.responseName
-    const fakerResponseName = hasFakerNameCollision && successResponses[0] ? fakerResolver.response.status(node, successResponses[0].statusCode) : faker?.name
-    const hasPrimarySuccessSchema = hasResponseSchema(successResponses[0])
-    const hasResponseSchemaType = node.responses.some((response) => response.content?.some((entry) => entry.schema))
+    const hasSuccessSchema = successResponses.some((response) => hasResponseSchema(response))
 
     const requestName = node.requestBody?.content?.[0]?.schema ? tsResolver.response.body(node) : null
 
@@ -95,20 +89,12 @@ export const mswGenerator = defineGenerator<PluginMsw>({
         <File.Import name={['http']} path="msw" />
         <File.Import name={['HttpResponseResolver']} isTypeOnly path="msw" />
         <File.Import
-          name={Array.from(
-            new Set([
-              ...(!hasResponseNameCollision && hasResponseSchemaType ? [type.responseName] : []),
-              ...types.filter(([code, typeName]) => code !== 'default' && typeName !== 'void').map((t) => t[1]),
-              ...(requestName ? [requestName] : []),
-            ]),
-          )}
+          name={Array.from(new Set([...(hasResponseNameCollision ? [] : [type.responseName]), ...responseTypeNames, ...(requestName ? [requestName] : [])]))}
           path={type.file.path}
           root={mock.file.path}
           isTypeOnly
         />
-        {parser === 'faker' && faker && hasPrimarySuccessSchema && (
-          <File.Import name={[fakerResponseName ?? faker.name]} root={mock.file.path} path={faker.file.path} />
-        )}
+        {parser === 'faker' && faker && hasSuccessSchema && <File.Import name={[faker.name]} root={mock.file.path} path={faker.file.path} />}
 
         {types
           .filter(([code]) => code !== 'default')
@@ -118,15 +104,8 @@ export const mswGenerator = defineGenerator<PluginMsw>({
             return <Response key={typeName} typeName={typeName} response={response} name={mock.name} />
           })}
 
-        {parser === 'faker' && faker && hasPrimarySuccessSchema ? (
-          <Mock
-            name={mock.name}
-            typeName={mockResponseName}
-            requestTypeName={requestName}
-            fakerName={fakerResponseName ?? faker.name}
-            node={node}
-            baseURL={baseURL}
-          />
+        {parser === 'faker' && faker && hasSuccessSchema ? (
+          <Mock name={mock.name} typeName={mockResponseName} requestTypeName={requestName} fakerName={faker.name} node={node} baseURL={baseURL} />
         ) : (
           <Mock name={mock.name} typeName={mockResponseName} requestTypeName={requestName} node={node} baseURL={baseURL} />
         )}

@@ -147,29 +147,6 @@ const enumResponseNameCollisionNode = ast.factory.createOperation({
   ],
 })
 
-const bodylessSuccessCollisionNode = ast.factory.createOperation({
-  operationId: 'getThing',
-  method: 'GET',
-  path: '/thing',
-  tags: ['things'],
-  responses: [
-    ast.factory.createResponse({ statusCode: '204', description: 'No content' }),
-    ast.factory.createResponse({
-      statusCode: '200',
-      description: 'OK',
-      schema: ast.factory.createSchema({ type: 'ref', name: 'GetThingResponse', ref: '#/components/schemas/GetThingResponse' }),
-    }),
-  ],
-})
-
-const bodylessOnlyNode = ast.factory.createOperation({
-  operationId: 'deleteThing',
-  method: 'DELETE',
-  path: '/thing',
-  tags: ['things'],
-  responses: [ast.factory.createResponse({ statusCode: '204', description: 'No content' })],
-})
-
 describe('mswGenerator operation', () => {
   const testData: Array<{
     name: string
@@ -186,7 +163,6 @@ describe('mswGenerator operation', () => {
     { name: 'deletePet', node: deletePetsPetidNode, options: {} },
     { name: 'createPetFaker', node: createPetsNode, options: { parser: 'faker' as const } },
     { name: 'responseNameCollision', node: responseNameCollisionNode, options: {} },
-    { name: 'responseNameCollisionFaker', node: responseNameCollisionNode, options: { parser: 'faker' as const } },
     {
       name: 'enumResponseNameCollision',
       node: enumResponseNameCollisionNode,
@@ -201,9 +177,6 @@ describe('mswGenerator operation', () => {
       tsEnum: { type: 'asConst', constCasing: 'camelCase', typeSuffix: 'Key', keyCasing: 'none' },
       enumNames: ['GetThingResponse'],
     },
-    { name: 'bodylessSuccessCollision', node: bodylessSuccessCollisionNode, options: {} },
-    { name: 'bodylessSuccessCollisionFaker', node: bodylessSuccessCollisionNode, options: { parser: 'faker' as const } },
-    { name: 'bodylessOnly', node: bodylessOnlyNode, options: {} },
   ]
 
   test.each(testData)('$name', async (props) => {
