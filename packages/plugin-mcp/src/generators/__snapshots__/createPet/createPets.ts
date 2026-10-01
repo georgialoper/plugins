@@ -14,7 +14,7 @@ import { createPets } from './clients/createPets'
 export async function createPetsHandler(
   { body }: CreatePetsOptions,
   request: RequestHandlerExtra<ServerRequest, ServerNotification>,
-): Promise<Promise<CallToolResult>> {
+): Promise<CallToolResult> {
   const res = await createPets({ body, signal: request.signal, throwOnError: true })
 
   return {

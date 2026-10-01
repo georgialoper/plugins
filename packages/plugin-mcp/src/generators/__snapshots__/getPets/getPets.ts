@@ -14,7 +14,7 @@ import { getPets } from './clients/getPets'
 export async function getPetsHandler(
   { query }: GetPetsOptions = {},
   request: RequestHandlerExtra<ServerRequest, ServerNotification>,
-): Promise<Promise<CallToolResult>> {
+): Promise<CallToolResult> {
   const res = await getPets({ query, signal: request.signal, throwOnError: true })
 
   return {
