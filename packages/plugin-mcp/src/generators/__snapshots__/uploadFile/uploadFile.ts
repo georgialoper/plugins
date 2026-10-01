@@ -11,10 +11,7 @@ import { uploadFile } from './clients/uploadFile'
 /**
  * {@link /pets/:petId/upload}
  */
-export async function uploadFileHandler(
-  { path, body }: UploadFileOptions,
-  request: RequestHandlerExtra<ServerRequest, ServerNotification>,
-): Promise<Promise<CallToolResult>> {
+export async function uploadFileHandler({ path, body }: UploadFileOptions, request: RequestHandlerExtra<ServerRequest, ServerNotification>): Promise<CallToolResult> {
   const res = await uploadFile({ path, body, signal: request.signal, throwOnError: true })
 
   return {
