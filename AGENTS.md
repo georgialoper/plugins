@@ -71,9 +71,3 @@ Plugin docs live in the docs repo ([kubb-labs/docs](https://github.com/kubb-labs
 `house` output style come from the `agents` plugin
 ([stijnvanhulle/agents](https://github.com/stijnvanhulle/agents)). Claude Code loads it from
 this repo's `.claude/settings.json`. Install `agents@stijnvanhulle` for Cursor and Codex.
-
-<skills>
-
-## Skills
-
-</skills>
