@@ -1,7 +1,4 @@
 ---
-'@internals/client': patch
-'@internals/shared': patch
-'@internals/tanstack-query': patch
 '@kubb/plugin-axios': patch
 '@kubb/plugin-client': patch
 '@kubb/plugin-cypress': patch
